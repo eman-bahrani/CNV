@@ -166,9 +166,9 @@ my_copynumber_segments1
 ```
 
 
-#1.	a) Altered in this sample? (1 point)
+#1.	a) Altered in this sample? 
 31 then 28
-#b) Gained or amplified (>LOG2RATIO >=0.585)? (1 point) 
+#b) Gained or amplified (>LOG2RATIO >=0.585)? 
 ```{r}
 gained <- subset(my_copynumber_segments1, LOG2_RATIO_MEAN >=0.585,
 select=c(SAMPLE_NAME, CHROMOSOME, CYTOBAND, LOG2_RATIO_MEAN))
@@ -178,7 +178,7 @@ gained
 
 8
 
-#c) Lost or deleted(>LOG2RATIO <=-0.585)? (1 point)
+#c) Lost or deleted(>LOG2RATIO <=-0.585)? 
 
 ```{r}
 lost <- subset(my_copynumber_segments1, LOG2_RATIO_MEAN <=-0.585,
@@ -188,7 +188,7 @@ lost
 ```
 1 then 0
 
-#2.	What region is most amplified? (2 points)
+#2.	What region is most amplified? 
 
 
 
@@ -203,7 +203,7 @@ highest_row <- my_copynumber_segments1[highest_index, ]
 print(highest_row)
 ```
 
-#3.	What region is most deleted? (2 points)
+#3.	What region is most deleted? 
 
 
 
@@ -220,7 +220,7 @@ print(lowest_row)
 
 
 
-#4.	Plot the resulting copy number profile (2 points)
+#4.	Plot the resulting copy number profile
 
 https://bioinformatics-core-shared-training.github.io/cruk-summer-school-2017/Day2/practical_copy-number.html
 
@@ -291,7 +291,7 @@ gisticChromPlot(gistic = gistic1, ref.build="hg38", markBands = getCytobandSumma
 Using the summary files and/or Chromosome Plot answer the following questions:
 
 
-#5.	What cytoband is altered in the most samples? (1 point)
+#5.	What cytoband is altered in the most samples? 
 ```{r}
 
 # cytoband summary in dataframe
@@ -312,10 +312,10 @@ print(top_altered_row)
 
 
 
-#6.	Is it an Amplification or a deletion? (1 point)
+#6.	Is it an Amplification or a deletion? 
 amplificaion
 
-#7.	How many samples is it altered in? (1 point)
+#7.	How many samples is it altered in? 
 
 
 ```{r}
@@ -339,7 +339,7 @@ print(alt_samples)
 ```
 293
 
-#8.	How many significant amplification and deletions are there (q <0.05)? (1 point)
+#8.	How many significant amplification and deletions are there (q <0.05)? 
 
 ```{r}
 
@@ -354,7 +354,7 @@ print(significant_alts)
 
 39
 
-#9.	Which sample has the most alterations? And the least? (2 points)
+#9.	Which sample has the most alterations? And the least? 
 ```{r}
 
 sample_summary <- as.data.frame(getSampleSummary(gistic1))
@@ -373,7 +373,7 @@ print(least_row)
 ```
 
 
-#10.	Which altered cytoband contains the most genes? (1 point)
+#10.	Which altered cytoband contains the most genes?
 ```{r}
 # most altered
 most_genes <- which.max(summary$nGenes)
@@ -386,7 +386,3 @@ most_genes <- summary[most_genes, ]
 print(most_genes)
 
 ```
-
-
-
-#Q11. Write up.
