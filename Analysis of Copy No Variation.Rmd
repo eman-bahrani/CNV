@@ -1,0 +1,392 @@
+---
+title: "Analysis of Copy No Variation"
+author: "Eman AlBahrani"
+date: "2024-03-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Install Libraries
+
+```{r}
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+
+BiocManager::install("Biobase")
+
+BiocManager::install("QDNAseq")
+
+```
+
+```{r}
+install.packages("remotes")
+
+BiocManager::install("quantsmooth")
+
+```
+
+```{r}
+install.packages("devtools") #use a mirror site nearby - either UK will be fine
+
+library(devtools)
+
+devtools::install_github("asntech/QDNAseq.hg38@main")
+```
+
+
+# Load libraries
+
+
+```{r}
+library("Biobase")
+library(QDNAseq)
+library("QDNAseq.hg38")
+library("maftools")
+library("quantsmooth")
+
+```
+
+
+# process bam files
+
+Follow the instructions here (https://bioconductor.org/packages/release/bioc/vignettes/QDNAseq/inst/doc/QDNAseq.pdf)
+
+1) obtain precalculated genome bin annotations using getBinAnnotations (set binSize=100 and genome="hg38"). This is the equivalent of separating the genome into segments each 100kb in length.
+
+```{r}
+bins1 <- getBinAnnotations(binSize=100, genome="hg38")
+# Loaded bin annotations for genome 'hg38'
+
+```
+
+2) process bam files into these segments using binReadCounts
+
+
+
+```{r}
+readCounts1<-binReadCounts(bins1,bamfiles="SCM8108_0.2x.sort.bam")
+```
+
+3) apply filters to remove problematic regions of the genome and bins with poor mapping qualities using applyFilters
+
+
+```{r}
+
+#before filtering
+plot(readCounts1,logTransform=FALSE,ylim=c(-50,200))
+
+
+#after filtering
+readCountsFiltered1 <- applyFilters(readCounts1,residual=TRUE,blacklist=TRUE)
+
+
+```
+
+
+## How many bins were there a) before filtering, b) in selected chromosomes (chr1-22 in this case) and c) for our analysis after filtering?
+
+
+a. 30, 894
+b. 27,679
+c. 24, 888
+
+
+4) estimate GC and mapping correction required and apply it using estimateCorrection followed by correctBins
+
+```{r}
+copyNumbers1<-correctBins(readCountsFiltered1)
+```
+
+
+5) segment and normalise using segmentBins and normaliseSegmentedBins
+
+```{r}
+
+copyNumbersNormalized1<-normalizeBins(copyNumbers1)
+
+copyNumbersSmooth1<-smoothOutlierBins(copyNumbersNormalized1)
+
+copyNumbersSegmented1<-segmentBins(copyNumbersSmooth1)
+
+copyNumbersSegmented1<-normalizeSegmentedBins(copyNumbersSegmented1)
+
+```
+
+
+6) plot the segmentation results
+
+```{r}
+plot(copyNumbersSegmented1, main = "Segmentation Results")
+
+```
+
+
+## How many reads are there in our WGS sample?
+
+
+7) identify which bins contain copy number alterations using callBins
+
+```{r}
+
+copyNumbersCalled1 <- callBins(copyNumbersSegmented1)
+
+```
+
+
+8) export copy number calls to a text file using exportBins(copyNumbersCalled, format="seg")
+
+```{r}
+
+exportBins(copyNumbersCalled1, file='Assessment.0.2x.sort.seg', format="seg")
+
+```
+
+
+
+You can use the command position2Cytoband from the package quantsmooth to add cytoband information to your final table of copynumber altered segments (something similar to the command below):
+
+```{r}
+
+my_copynumber_segments1 = read.table("Assessment.0.2x.sort.seg",header=T,sep="\t")
+
+my_copynumber_segments1
+```
+
+```{r}
+my_copynumber_segments1$CYTOBAND=mapply(position2Cytoband,my_copynumber_segments1$CHROMOSOME,my_copynumber_segments1$START, units="hg38")
+
+```
+
+```{r}
+my_copynumber_segments1
+```
+
+
+#1.	a) Altered in this sample? (1 point)
+31 then 28
+#b) Gained or amplified (>LOG2RATIO >=0.585)? (1 point) 
+```{r}
+gained <- subset(my_copynumber_segments1, LOG2_RATIO_MEAN >=0.585,
+select=c(SAMPLE_NAME, CHROMOSOME, CYTOBAND, LOG2_RATIO_MEAN))
+
+gained
+```
+
+8
+
+#c) Lost or deleted(>LOG2RATIO <=-0.585)? (1 point)
+
+```{r}
+lost <- subset(my_copynumber_segments1, LOG2_RATIO_MEAN <=-0.585,
+select=c(SAMPLE_NAME, CHROMOSOME, CYTOBAND,LOG2_RATIO_MEAN))
+
+lost
+```
+1 then 0
+
+#2.	What region is most amplified? (2 points)
+
+
+
+```{r}
+# Get the index of the row with the most amplified region
+highest_index <- which.max(my_copynumber_segments1$LOG2_RATIO_MEAN)
+
+# Get the entire row corresponding to the index
+highest_row <- my_copynumber_segments1[highest_index, ]
+
+# Print the entire row
+print(highest_row)
+```
+
+#3.	What region is most deleted? (2 points)
+
+
+
+```{r}
+# Get the index of the row with the most deleted region
+lowest_index <- which.min(my_copynumber_segments1$LOG2_RATIO_MEAN)
+
+# Get the entire row corresponding to the index
+lowest_row <- my_copynumber_segments1[lowest_index, ]
+
+# Print the entire row
+print(lowest_row)
+```
+
+
+
+#4.	Plot the resulting copy number profile (2 points)
+
+https://bioinformatics-core-shared-training.github.io/cruk-summer-school-2017/Day2/practical_copy-number.html
+
+```{r}
+plot(copyNumbersCalled1, main = "Copy Number Profile")
+
+```
+
+## Recurrent somatic copy number alterations
+
+Complete the following line in order to load the required data into the gistic object:
+
+```{r}
+gistic1 <- readGistic(gisticAllLesionsFile = "SCM8108_all_lesions.conf_99.txt", gisticAmpGenesFile = "SCM8108_amp_genes.conf_99.txt", gisticDelGenesFile = "SCM8108_del_genes.conf_99.txt", gisticScoresFile = "SCM8108_scores.gistic")
+
+```
+
+
+You can see a quick summary of this gistic object by typing gistic and return on the command line:
+
+```{r}
+gistic1
+```
+
+
+
+Further summary information is available with the following functions:
+```{r}
+
+getSampleSummary(gistic1)
+getGeneSummary(gistic1)
+getCytobandSummary(gistic1)
+
+```
+
+
+And these can be written to files using the write.GisticSummary function
+
+
+Use the help function to understand what you need to pass to write.GisticSummary in order to write out summary files
+
+```{r}
+write.GisticSummary(gistic = gistic1, basename = 'laml1')
+```
+
+
+Often it is useful to visualise recurrent copy number changes on a frequency plot. We can use the gisticChromPlot function to do this.
+
+
+```{r}
+gisticChromPlot(gistic = gistic1, ref.build="hg38")
+```
+
+By default, this will label the top 5 regions. However, we can change this to label all of them or a specific subset:
+
+
+```{r}
+gisticChromPlot(gistic = gistic1, ref.build="hg38", markBands="all")
+```
+
+or pick particular ones that you're intered in:
+
+```{r}
+gisticChromPlot(gistic = gistic1, ref.build="hg38", markBands = getCytobandSummary(gistic1)$Cytoband[1:10])
+
+```
+
+Using the summary files and/or Chromosome Plot answer the following questions:
+
+
+#5.	What cytoband is altered in the most samples? (1 point)
+```{r}
+
+# cytoband summary in dataframe
+cytoband_summary <- as.data.frame(getCytobandSummary(gistic1))
+
+# altered in most samples
+top_altered_samples <- which.max(cytoband_summary$nSamples)
+
+# Get the entire row corresponding to the index
+top_altered_row <- cytoband_summary[top_altered_samples, ]
+
+
+# Print the entire row
+print(top_altered_row)
+
+```
+
+
+
+
+#6.	Is it an Amplification or a deletion? (1 point)
+amplificaion
+
+#7.	How many samples is it altered in? (1 point)
+
+
+```{r}
+
+
+# most altered
+altered_index <- which(cytoband_summary$Cytoband == "1q32.1")
+
+# Get the entire row corresponding to the index
+altered_row <- cytoband_summary[altered_index, ]
+
+
+# Print the entire row
+print(altered_row)
+
+
+# find altered samples
+alt_samples <- cytoband_summary$nSamples[altered_index]
+print(alt_samples)
+
+```
+293
+
+#8.	How many significant amplification and deletions are there (q <0.05)? (1 point)
+
+```{r}
+
+
+# significant alterations
+significant_alts <- subset(cytoband_summary, qvalues < 0.05,
+select=c(Unique_Name, qvalues, Variant_Classification ))
+
+
+print(significant_alts)
+```
+
+39
+
+#9.	Which sample has the most alterations? And the least? (2 points)
+```{r}
+
+sample_summary <- as.data.frame(getSampleSummary(gistic1))
+
+# most altered
+most_index <- which.max(sample_summary$total)
+least_index <- which.min(sample_summary$total)
+
+# Get the entire row corresponding to the index
+most_row <- sample_summary[most_index, ]
+least_row <- sample_summary[least_index, ]
+
+# Print the entire row
+print(most_row)
+print(least_row)
+```
+
+
+#10.	Which altered cytoband contains the most genes? (1 point)
+```{r}
+# most altered
+most_genes <- which.max(summary$nGenes)
+
+
+# Get the entire row corresponding to the index
+most_genes <- summary[most_genes, ]
+
+# Print the entire row
+print(most_genes)
+
+```
+
+
+
+#Q11. Write up.
